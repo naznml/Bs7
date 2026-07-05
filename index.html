@@ -210,6 +210,13 @@
   </div>
 </main>
 
+  <div id="quickNavigator" class="quick-nav">
+    <button type="button" onclick="scrollToTopQuick()">↑ Жоғары</button>
+    <button type="button" onclick="scrollToTestsQuick()">Тесттер</button>
+    <div id="floatingScore" class="floating-score">0 / 0</div>
+  </div>
+
+
   <script>
     const sections = [
 
@@ -6939,10 +6946,10 @@
         </div>
 
         <div class="result-actions">
-          <button class="result-btn" onclick="showSectionResult('${section.id}')">Нәтижені көрсету</button>
           <div id="result-${section.id}" class="section-result"></div>
         </div>
       `;
+      updateLiveScore(section.id);
     }
 
     function renderQuestion(sectionId, q, qIndex) {
@@ -6980,13 +6987,17 @@
 
     function saveAnswer(sectionId, qIndex) {
       const section = sections.find(s => s.id === sectionId);
-      const q = section.questions[qIndex];
+      if (!section) return;
+
       const name = `${sectionId}-q-${qIndex}`;
       const checked = [...document.querySelectorAll(`input[name="${name}"]:checked`)]
         .map(input => Number(input.value));
 
       if (!answers[sectionId]) answers[sectionId] = {};
       answers[sectionId][qIndex] = checked;
+
+      markQuestion(sectionId, qIndex);
+      updateLiveScore(sectionId);
     }
 
     function arraysEqual(a, b) {
@@ -6997,53 +7008,84 @@
       return x.every((v, i) => v === y[i]);
     }
 
-    function showSectionResult(sectionId) {
+    function isAnswered(userAnswer) {
+      return Array.isArray(userAnswer) && userAnswer.length > 0;
+    }
+
+    function markQuestion(sectionId, qIndex) {
+      const section = sections.find(s => s.id === sectionId);
+      if (!section) return;
+
+      const q = section.questions[qIndex];
+      const name = `${sectionId}-q-${qIndex}`;
+      const userAnswer = answers[sectionId]?.[qIndex] || [];
+      const answered = isAnswered(userAnswer);
+      const isCorrect = arraysEqual(userAnswer, q.answer);
+      const card = document.getElementById(name);
+      if (!card || !answered) return;
+
+      const labels = card.querySelectorAll(".option");
+      labels.forEach(label => {
+        const optIndex = Number(label.dataset.option);
+        label.classList.remove("correct", "wrong");
+
+        if (q.answer.includes(optIndex)) {
+          label.classList.add("correct");
+        }
+
+        if (userAnswer.includes(optIndex) && !q.answer.includes(optIndex)) {
+          label.classList.add("wrong");
+        }
+      });
+
+      const explanation = document.getElementById(`explanation-${name}`);
+      if (explanation) {
+        explanation.innerHTML = `
+          <div class="${isCorrect ? "ok" : "bad"}">
+            ${isCorrect ? "Дұрыс жауап!" : "Қате жауап."}
+          </div>
+          <p>${q.explanation}</p>
+        `;
+        explanation.style.display = "block";
+      }
+    }
+
+    function updateLiveScore(sectionId) {
       const section = sections.find(s => s.id === sectionId);
       if (!section) return;
 
       let correctCount = 0;
+      let answeredCount = 0;
 
       section.questions.forEach((q, qIndex) => {
-        const name = `${sectionId}-q-${qIndex}`;
         const userAnswer = answers[sectionId]?.[qIndex] || [];
-        const isCorrect = arraysEqual(userAnswer, q.answer);
-
-        if (isCorrect) correctCount++;
-
-        const card = document.getElementById(name);
-        if (!card) return;
-
-        const labels = card.querySelectorAll(".option");
-        labels.forEach(label => {
-          const optIndex = Number(label.dataset.option);
-          label.classList.remove("correct", "wrong");
-
-          if (q.answer.includes(optIndex)) {
-            label.classList.add("correct");
-          }
-
-          if (userAnswer.includes(optIndex) && !q.answer.includes(optIndex)) {
-            label.classList.add("wrong");
-          }
-        });
-
-        const explanation = document.getElementById(`explanation-${name}`);
-        if (explanation) {
-          explanation.innerHTML = `
-            <div class="${isCorrect ? "ok" : "bad"}">
-              ${isCorrect ? "Дұрыс жауап!" : "Қате жауап."}
-            </div>
-            <p>${q.explanation}</p>
-          `;
-          explanation.style.display = "block";
-        }
+        if (isAnswered(userAnswer)) answeredCount++;
+        if (arraysEqual(userAnswer, q.answer)) correctCount++;
       });
 
+      const scoreText = `${correctCount} / ${section.questions.length}`;
       const resultBox = document.getElementById(`result-${sectionId}`);
       if (resultBox) {
         resultBox.innerHTML = `
-          <strong>Нәтиже:</strong> ${correctCount} / ${section.questions.length}
+          <strong>Нәтиже:</strong> ${scoreText}
+          <small>Жауап берілгені: ${answeredCount} / ${section.questions.length}</small>
         `;
+      }
+
+      const floatingScore = document.getElementById("floatingScore");
+      if (floatingScore) {
+        floatingScore.innerHTML = `Балл: ${scoreText}<br><small>${answeredCount} жауап</small>`;
+      }
+    }
+
+    function scrollToTopQuick() {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function scrollToTestsQuick() {
+      const questions = document.querySelector(".questions");
+      if (questions) {
+        questions.scrollIntoView({ behavior: "smooth", block: "start" });
       }
     }
 
@@ -7052,3 +7094,4 @@
   </script>
 </body>
 </html>
+      
